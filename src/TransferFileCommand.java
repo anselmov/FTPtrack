@@ -18,6 +18,7 @@ public class TransferFileCommand implements Command {
 
     String fileToWrite;
     long startTime;
+    int bytesRead;
 
     public TransferFileCommand(String fileToWrite, long startTime) {
         this.fileToWrite = fileToWrite;
@@ -33,7 +34,9 @@ public class TransferFileCommand implements Command {
 //        System.out.println("[W] Writing " + fileToWrite);
 //        System.out.println("[R] Reading file from client ... Please wait.");
 
-        if (clientHasNothingMoreToSend(clientSocket.read(buffer))) {
+        bytesRead = clientSocket.read(buffer);
+
+        if (clientHasNothingMoreToSend()) {
             long stopTime = System.currentTimeMillis();
             long elapsedTime = stopTime - startTime;
             long minutes = (elapsedTime / (1000 * 60)) % 60;
@@ -41,7 +44,6 @@ public class TransferFileCommand implements Command {
             System.out.print("(info) File received successfully.");
             System.out.printf("[Elapsed Time : %d min (%d ms)] [File size : %s]%n",
                     minutes, elapsedTime, humanReadableByteCount(fileChannel.size()));
-            selectionKey.cancel();
 
         } else { // continue writing
             buffer.flip();
@@ -52,8 +54,8 @@ public class TransferFileCommand implements Command {
         fileChannel.close();
     }
 
-    private boolean clientHasNothingMoreToSend(int read) {
-        return read == -1;
+    private boolean clientHasNothingMoreToSend() {
+        return bytesRead == -1;
     }
 
     @Override
@@ -63,7 +65,9 @@ public class TransferFileCommand implements Command {
 
     @Override
     public Command next() {
-        return this;
+        if (clientHasNothingMoreToSend()) return new SaveToDatabaseCommand();
+        else
+            return this;
     }
 
     public static String humanReadableByteCount(long bytes) {

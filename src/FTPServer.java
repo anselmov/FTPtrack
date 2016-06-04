@@ -18,10 +18,14 @@ public class FTPServer {
     private ServerSocketChannel serverSocket;
     private Selector selector;
 
-    public FTPServer() throws IOException {
-        connect();
-        addShutdownHook();
-        processCommands();
+    public FTPServer() {
+        try {
+            connect();
+            addShutdownHook();
+            processCommands();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public void connect() throws IOException {
@@ -38,10 +42,11 @@ public class FTPServer {
     }
 
     public void processCommands() throws IOException {
-        while (true) {
+        while (selector.isOpen()) {
+
             int select = selector.select();
-//            System.out.printf("[#] Sockets to process : [%d]%n", select);
             if (select == 0) continue; // no socket updates
+//            System.out.printf("[#] Sockets to process : [%d]%n", select);
 
             // process socket updates
             Set<SelectionKey> selectionKeys = selector.selectedKeys();
@@ -64,7 +69,6 @@ public class FTPServer {
                         String ackCommand = "GIVE";
                         System.out.printf("[W] Write ack command = [%s]%n", ackCommand);
                         clientSocket.write(ByteBuffer.wrap(ackCommand.getBytes()));
-
                     }
 
                     if (selectionKey.isValid()) {
@@ -103,8 +107,8 @@ public class FTPServer {
         @Override
         public void run() {
             try {
-                serverSocket.close();
                 selector.close();
+                serverSocket.close();
                 System.out.println("[X] Server closed.");
             } catch (IOException e) {
                 e.printStackTrace();
@@ -112,7 +116,7 @@ public class FTPServer {
         }
     }
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) {
         new FTPServer();
     }
 }
