@@ -1,3 +1,5 @@
+package src;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -6,20 +8,23 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.SocketChannel;
 
+/**
+ * Sends to the server the first listed file in a directory
+ */
 public class FTPClient {
-
+    /**
+     * Configuration Params
+     */
     public static final String HOST = "127.0.0.1";
     public static final int PORT = 5217;
     public static final String VIDEO_DIR = "mydir";
-    private static final String START_TRANSFER_COMMAND = "SEND";
-    public static final int BUFFER_SIZE = 8192;
+    public static final int BUFFER_SIZE = 4;
 
-    FileChannel fileChannel; // read files
-    SocketChannel clientSocket;  // write files & text commands
+    FileChannel fileChannel; // read client's files (ie video files)
+    SocketChannel clientSocket;  // read/write with the server
 
     public FTPClient() throws IOException {
         connect();
-//        sendCommand(START_TRANSFER_COMMAND);
         sendFile(findFirstFile());
         disconnect();
     }
@@ -27,10 +32,6 @@ public class FTPClient {
     private void connect() throws IOException {
         clientSocket = SocketChannel.open(new InetSocketAddress(HOST, PORT));
         System.out.println(">>> Client Started !");
-    }
-
-    private void sendCommand(String startTransferCommand) throws IOException {
-        clientSocket.write(ByteBuffer.wrap(startTransferCommand.getBytes()));
     }
 
     private String findFirstFile() {
@@ -50,17 +51,19 @@ public class FTPClient {
         System.out.printf("(info) File to transfer [%s]%n", fileName);
         clientSocket.write(ByteBuffer.wrap((fileName + System.lineSeparator()).getBytes()));
         clientSocket.read(buffer);
-        String commandRecieved = new String(buffer.array()).trim();
-        System.out.printf("[R] Read command [%s]%n", commandRecieved);
 
-        if (commandRecieved.equals("GIVE")) {
-            // transfer file
-            long fileSize = fileChannel.size();
-            System.out.printf("(info) Transfer of %d bytes in progress ...%n", fileSize);
-            fileChannel.transferTo(0, fileSize, clientSocket);
+        String commandReceived = new String(buffer.array());
+        System.out.printf("[R] Read command [%s]%n", commandReceived);
 
-            System.out.println("(info) File sent successfully.");
+        // transfer file
+        long fileSize = fileChannel.size();
+        System.out.printf("(info) Transfer of %d bytes in progress ...%n", fileSize);
+        long bytesSent = 0;
+        while (bytesSent < fileSize) {
+            bytesSent += fileChannel.transferTo(bytesSent, fileSize, clientSocket);
         }
+
+        System.out.println("(info) File sent successfully.");
     }
 
     private void disconnect() throws IOException {
