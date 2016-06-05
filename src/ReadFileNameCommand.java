@@ -1,23 +1,25 @@
 package src;
 
 import java.io.IOException;
+import java.net.SocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectionKey;
-import java.nio.channels.SocketChannel;
 
 public class ReadFileNameCommand implements Command {
     private static final int BUFFER_SIZE = 1024;
     String fileName;
-    int bytesRead;
+    SocketAddress receive;
 
     @Override
     public void execute(SelectionKey selectionKey) throws IOException {
         ByteBuffer buffer = ByteBuffer.allocate(BUFFER_SIZE);
-        SocketChannel clientSocket = (SocketChannel) selectionKey.channel();
+        DatagramChannel clientSocket = (DatagramChannel) selectionKey.channel();
 
-        bytesRead = clientSocket.read(buffer);
+        receive = clientSocket.receive(buffer);
+        System.out.println("receive = " + receive);
 
-        if (hasFailedToReadFromServer(bytesRead)) {
+        if (hasFailedToReadFromServer()) {
             selectionKey.cancel();
             return;
         }
@@ -26,8 +28,8 @@ public class ReadFileNameCommand implements Command {
         System.out.printf("[R] File to receive [%s]%n", fileName);
     }
 
-    private boolean hasFailedToReadFromServer(int bytesRead) {
-        return bytesRead == -1;
+    private boolean hasFailedToReadFromServer() {
+        return receive == null;
     }
 
     @Override
