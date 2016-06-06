@@ -65,7 +65,7 @@ public class TransferFileCommand implements Command {
 
     @Override
     public Command next() {
-        if (clientHasNothingMoreToSend()) return new SaveToDatabaseCommand();
+        if (clientHasNothingMoreToSend()) return new SaveToDatabaseCommand(fileToWrite);
         else
             return this;
     }
