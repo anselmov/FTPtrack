@@ -1,7 +1,9 @@
 package src;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
 import java.util.Iterator;
@@ -28,7 +30,7 @@ public class FTPServer {
 
     public void connect() throws IOException {
         serverSocket = DatagramChannel.open();
-        serverSocket.socket().bind(new InetSocketAddress( PORT));
+        serverSocket.socket().bind(new InetSocketAddress(HOST, PORT));
         serverSocket.configureBlocking(false);
         selector = Selector.open();
         System.out.println(">>> Server Started !");
@@ -43,7 +45,7 @@ public class FTPServer {
     public void processCommands() throws IOException {
         while (selector.isOpen()) {
 
-            int select = selector.select(1000);
+            int select = selector.select();
             System.out.printf("[#] Sockets to process : [%d]%n", select);
             if (select == 0) continue; // no socket updates
 
@@ -67,7 +69,9 @@ public class FTPServer {
                 } else if (selectionKey.isWritable()) {
                     String ackCommand = "GIVE";
                     System.out.printf("[W] Write ack command = [%s]%n", ackCommand);
-                    channel.send(ByteBuffer.wrap(ackCommand.getBytes()), new InetSocketAddress(HOST, PORT));
+
+                    SocketAddress receive = channel.receive(ByteBuffer.allocate(1));
+                    channel.send(ByteBuffer.wrap(ackCommand.trim().getBytes()), receive);
                 }
 
                 if (selectionKey.isValid()) {

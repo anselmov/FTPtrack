@@ -1,6 +1,8 @@
 package src;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
@@ -17,7 +19,7 @@ public class ReadFileNameCommand implements Command {
         DatagramChannel clientSocket = (DatagramChannel) selectionKey.channel();
 
         receive = clientSocket.receive(buffer);
-        System.out.println("receive = " + receive);
+        System.out.println("receive from = " + receive);
 
         if (hasFailedToReadFromServer()) {
             selectionKey.cancel();

@@ -1,12 +1,12 @@
 package src;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
-import java.nio.channels.SeekableByteChannel;
+import java.nio.channels.FileChannel;
 import java.nio.channels.SelectionKey;
 
 /**
@@ -16,40 +16,43 @@ import java.nio.channels.SelectionKey;
  * Created by anselmov on 04/06/16.
  */
 public class TransferFileCommand implements Command {
-    public static final String HOST = "127.0.0.1";
-    public static final int PORT = 5217;
-    private static final int BUFFER_SIZE = 8192;
+    public static final int BUFFER_SIZE = 254;
 
     String fileToWrite;
     long startTime;
-    SocketAddress receive;
     Boolean isTransferFinished = false;
+
+    FileChannel fileChannel;
+    private SocketAddress receive;
 
     public TransferFileCommand(String fileToWrite, long startTime) {
         this.fileToWrite = fileToWrite;
         this.startTime = startTime;
+        try {
+            fileChannel = new RandomAccessFile(fileToWrite, "rw").getChannel();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+
     }
 
     @Override
     public void execute(SelectionKey selectionKey) throws IOException {
         ByteBuffer buffer = ByteBuffer.allocate(BUFFER_SIZE);
         DatagramChannel clientSocket = (DatagramChannel) selectionKey.channel();
-        SeekableByteChannel fileChannel = new RandomAccessFile(fileToWrite, "rw").getChannel();
 
 //        System.out.println("[W] Writing " + fileToWrite);
 //        System.out.println("[R] Reading file from client ... Please wait.");
 
+        buffer.clear();
         receive = clientSocket.receive(buffer);
+        clientSocket.send(ByteBuffer.wrap("x".getBytes()), receive);
 
-        if (clientSocket.isConnected()) {
+        if (clientHasNothingMoreToSend()) {
             long stopTime = System.currentTimeMillis();
             long elapsedTime = stopTime - startTime;
             long minutes = (elapsedTime / (1000 * 60)) % 60;
             isTransferFinished = true;
-
-            String ackCommand = "GIVE";
-            System.out.printf("[W] Write ack command = [%s]%n", ackCommand);
-            clientSocket.send(ByteBuffer.wrap(ackCommand.getBytes()), new InetSocketAddress(PORT));
 
             System.out.print("(info) File received successfully.");
             System.out.printf("[Elapsed Time : %d min (%d ms)] [File size : %s]%n",
@@ -57,11 +60,11 @@ public class TransferFileCommand implements Command {
 
         } else { // continue writing
             buffer.flip();
+            System.out.println("fileChannel.size() = " + fileChannel.size());
             fileChannel.position(fileChannel.size());
             fileChannel.write(buffer);
         }
 
-        fileChannel.close();
     }
 
     private boolean clientHasNothingMoreToSend() {
@@ -75,9 +78,18 @@ public class TransferFileCommand implements Command {
 
     @Override
     public Command next() {
-        if (isTransferFinished) return new SaveToDatabaseCommand();
-        else
-            return this;
+
+        if (isTransferFinished) {
+            try {
+                fileChannel.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            return new SaveToDatabaseCommand();
+        } else {
+        }
+        return this;
     }
 
     public static String humanReadableByteCount(long bytes) {

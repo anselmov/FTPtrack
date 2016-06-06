@@ -3,7 +3,6 @@ package src;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.net.DatagramPacket;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
@@ -20,7 +19,7 @@ public class FTPClient {
     public static final String HOST = "127.0.0.1";
     public static final int PORT = 5217;
     public static final String VIDEO_DIR = "mydir";
-    public static final int BUFFER_SIZE = 254;
+    public static final int BUFFER_SIZE = 64;
 
     DatagramChannel channel; // read/write with the server
     FileChannel fileChannel; // read client's files (ie video files)
@@ -34,6 +33,8 @@ public class FTPClient {
     private void connect() throws IOException {
         channel = DatagramChannel.open();
         channel.connect(new InetSocketAddress(HOST, PORT));
+        System.out.println("channel.getLocalAddress() = " + channel.getLocalAddress());
+        System.out.println("channel = " + channel.getRemoteAddress());
         System.out.println(">>> Client Started !");
     }
 
@@ -52,13 +53,23 @@ public class FTPClient {
         // write fileName
         System.out.printf("(info) File to transfer [%s]%n", fileName);
         InetSocketAddress target = new InetSocketAddress(HOST, PORT);
+        System.out.println("target.getAddress() = " + target.getAddress());
+        System.out.println("target.getHostName() = " + target.getHostName());
+        System.out.println("target = " + target);
         long send;
-//        send = channel.send(ByteBuffer.wrap((fileName + System.lineSeparator()).getBytes()), target);
-//        System.out.println("sent = " + send);
+        send = channel.send(ByteBuffer.wrap((fileName + System.lineSeparator()).getBytes()), target);
+        System.out.println("sent = " + send);
+
+        buffer.clear();
 
         //Wait for start transfer signal
+        System.out.println("Send SYN");
+        send = channel.send(ByteBuffer.wrap("x".getBytes()), target);
         System.out.println("Waiting for signal...");
-        String commandReceived = new String(buffer.array());
+        SocketAddress receive = channel.receive(buffer);
+        System.out.println("received= " + receive);
+        System.out.println("receive.toString() = " + receive.toString());
+        String commandReceived = new String(buffer.array()).trim();
         System.out.printf("[R] Read command [%s]%n", commandReceived);
 
         // transfer file
@@ -67,10 +78,10 @@ public class FTPClient {
         long bytesSent = 0;
         while (bytesSent < fileSize) {
             bytesSent += fileChannel.transferTo(bytesSent, BUFFER_SIZE, channel);
-            System.out.println("bytesSent = " + bytesSent);
+            channel.receive(buffer);
+            buffer.flip();
         }
-//
-//        System.out.println("receive = " + receive);
+
         System.out.println("(info) File sent successfully.");
     }
 
